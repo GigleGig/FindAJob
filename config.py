@@ -12,13 +12,11 @@ class Config:
     MAX_POSITIONS = 3
     DATABASE_PATH = 'job_applications.db'
     
-    # Chrome settings for bot detection bypass
+    # Chrome settings for bot detection bypass (compatible options only)
     CHROME_OPTIONS = [
         '--no-sandbox',
-        '--disable-blink-features=AutomationControlled',
         '--disable-dev-shm-usage',
         '--disable-extensions',
         '--disable-plugins',
-        '--disable-images',
-        '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        '--disable-images'
     ]

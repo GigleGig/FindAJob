@@ -48,22 +48,55 @@ An intelligent job search and application automation tool powered by Google's Ge
 
 ## Usage
 
-1. **Modify the CV and user information in main.py:**
-   - Replace the sample CV with your actual CV content
-   - Update your preferred locations
-   - Set your user information (phone, experience, salary expectations, etc.)
+### First Time Setup
+
+1. **Run the setup wizard to create your configuration:**
+   ```bash
+   python main.py --setup
+   ```
+   
+   This will create a `user_config.json` file with your personal information, preferred locations, and job preferences.
+
+2. **Or manually create/edit `user_config.json`:**
+   ```json
+   {
+     "personal_info": {
+       "phone": "+1-555-123-4567",
+       "email": "your.email@example.com", 
+       "years_experience": "5",
+       "expected_salary": "120000",
+       "cover_letter": "Your cover letter..."
+     },
+     "preferred_locations": ["New York, NY", "Remote"],
+     "job_preferences": {
+       "max_jobs_per_search": 3,
+       "min_match_score": 70
+     },
+     "application_settings": {
+       "auto_submit": true,
+       "delay_between_applications": 15
+     }
+   }
+   ```
+
+### Running the Agent
+
+1. **Prepare your CV file:**
+   - Supported formats: PDF, TXT, DOC
+   - Place it anywhere accessible on your system
 
 2. **Run the agent:**
    ```bash
    python main.py
    ```
-
-3. **The agent will:**
+   
+   The agent will:
+   - Ask for your CV file path
+   - Show your current configuration 
    - Analyze your CV using Gemini AI
-   - Find 3 most matched positions
+   - Find most matched positions
    - Search LinkedIn for Easy Apply jobs
-   - Automatically apply to suitable positions
-   - Generate reports for jobs requiring manual information
+   - Apply automatically and generate reports
 
 ## Configuration
 

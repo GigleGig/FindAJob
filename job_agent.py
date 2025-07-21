@@ -4,6 +4,7 @@ from typing import Dict, List
 from cv_analyzer import CVAnalyzer
 from linkedin_scraper import LinkedInScraper
 from database import JobDatabase
+from job_search_helper import JobSearchHelper
 import json
 
 class JobAgent:
@@ -15,17 +16,17 @@ class JobAgent:
         self.matched_positions = []
         self.user_info = {}
     
-    def analyze_cv(self, cv_text: str) -> Dict:
+    def analyze_cv(self, cv_path: str) -> Dict:
         """Step 1: Analyze CV using Gemini API"""
         print("Analyzing CV...")
-        self.cv_data = self.cv_analyzer.analyze_cv(cv_text)
+        self.cv_data = self.cv_analyzer.analyze_cv(cv_path)
         print(f"CV Analysis completed. Found {len(self.cv_data.get('skills', []))} skills")
         return self.cv_data
     
-    def find_matched_positions(self, locations: List[str]) -> List[Dict]:
-        """Step 2: Find 3 most matched positions"""
+    def find_matched_positions(self, locations: List[str], preferences: Dict = None) -> List[Dict]:
+        """Step 2: Find most matched positions"""
         print("Finding matched positions...")
-        self.matched_positions = self.cv_analyzer.match_positions(self.cv_data, locations)
+        self.matched_positions = self.cv_analyzer.match_positions(self.cv_data, locations, preferences)
         print(f"Found {len(self.matched_positions)} matched positions:")
         for i, pos in enumerate(self.matched_positions, 1):
             print(f"{i}. {pos.get('title', 'Unknown')} (Match: {pos.get('match_score', 0)}%)")
@@ -48,60 +49,45 @@ class JobAgent:
         
         # Setup LinkedIn scraper
         print("Setting up LinkedIn scraper...")
-        self.linkedin_scraper.setup_driver()
-        
-        if not self.linkedin_scraper.login():
-            print("Failed to login to LinkedIn")
+        try:
+            self.linkedin_scraper.setup_driver()
+            
+            if not self.linkedin_scraper.login():
+                print("Failed to login to LinkedIn")
+                return results
+                
+        except Exception as e:
+            print(f"LinkedIn scraper setup failed: {e}")
+            print("\nChrome automation encountered issues, switching to manual job search helper...")
+            
+            # Use the job search helper instead
+            helper = JobSearchHelper()
+            helper.interactive_job_search(self.cv_data, self.matched_positions, locations, self.user_info)
+            
             return results
         
         try:
-            # Search for each matched position in each location
+            # Use fast workflow for each matched position in each location
             for position in self.matched_positions:
                 for location in locations:
-                    print(f"\nSearching for '{position['title']}' in {location}...")
+                    print(f"\nFast applying for '{position['title']}' in {location}...")
                     
-                    # Search jobs
-                    jobs = self.linkedin_scraper.search_jobs(position['title'], location)
-                    results['total_found'] += len(jobs)
+                    # Use the new fast search and apply method
+                    fast_results = self.linkedin_scraper.search_and_apply_jobs_fast(
+                        position['title'], 
+                        location, 
+                        self.user_info
+                    )
                     
-                    print(f"Found {len(jobs)} easy apply jobs")
+                    # Update results
+                    results['total_found'] += fast_results.get('total_found', 0)
+                    results['applications_successful'] += fast_results.get('applied', 0)
+                    results['applications_attempted'] += fast_results.get('applied', 0) + fast_results.get('failed', 0)
                     
-                    # Process each job
-                    for job in jobs:
-                        # Add to database
-                        application_id = self.db.add_job_application({
-                            'title': job['title'],
-                            'company': job['company'],
-                            'url': job['url'],
-                            'location': job['location'],
-                            'status': 'found'
-                        })
-                        
-                        if application_id:
-                            # Try to apply
-                            print(f"Attempting to apply to {job['title']} at {job['company']}")
-                            results['applications_attempted'] += 1
-                            
-                            # Add random delay between applications
-                            time.sleep(random.uniform(10, 20))
-                            
-                            application_result = self.linkedin_scraper.apply_to_job(job['url'], self.user_info)
-                            
-                            if application_result.get('success'):
-                                self.db.mark_as_applied(application_id)
-                                results['applications_successful'] += 1
-                                print(f"✓ Successfully applied to {job['title']}")
-                            else:
-                                # Update database with missing info
-                                missing_info = application_result.get('missing_info', [])
-                                if missing_info:
-                                    results['jobs_with_missing_info'] += 1
-                                    print(f"⚠ Missing info for {job['title']}: {', '.join(missing_info)}")
-                                else:
-                                    print(f"✗ Failed to apply to {job['title']}: {application_result.get('reason', 'Unknown error')}")
+                    print(f"Applied to {fast_results.get('applied', 0)} jobs, failed on {fast_results.get('failed', 0)}")
                     
-                    # Add delay between searches
-                    time.sleep(random.uniform(5, 10))
+                    # Short delay between different position searches
+                    time.sleep(random.uniform(3, 5))
         
         finally:
             self.linkedin_scraper.close()
@@ -131,20 +117,20 @@ class JobAgent:
                 print(f"  Missing: {', '.join(job['missing_info'])}")
                 print()
     
-    def run_full_process(self, cv_text: str, locations: List[str], user_info: Dict):
+    def run_full_process(self, cv_path: str, locations: List[str], user_info: Dict, preferences: Dict = None):
         """Run the complete job finding and application process"""
         print("Starting Auto Job Finding Agent...")
         print("=" * 50)
         
         # Step 1: Analyze CV
-        cv_analysis = self.analyze_cv(cv_text)
+        cv_analysis = self.analyze_cv(cv_path)
         
         if not cv_analysis:
             print("Failed to analyze CV. Exiting.")
             return
         
         # Step 2: Find matched positions
-        positions = self.find_matched_positions(locations)
+        positions = self.find_matched_positions(locations, preferences)
         
         if not positions:
             print("No matched positions found. Exiting.")
